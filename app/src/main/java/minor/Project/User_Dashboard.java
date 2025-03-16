@@ -2,6 +2,7 @@ package minor.Project;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
@@ -24,6 +25,7 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.maps.DirectionsApi;
 import com.google.maps.GeoApiContext;
 import com.google.maps.model.DirectionsResult;
@@ -40,7 +42,7 @@ public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallb
     private GoogleMap mMap;
     private FusedLocationProviderClient fusedLocationClient;
     private TextView etaTextView, distanceTextView;
-    private GeoApiContext geoApiContext; // For Google Maps Directions API
+    private GeoApiContext geoApiContext;
     private Handler handler = new Handler();
     private Runnable fetchDriverLocationRunnable;
 
@@ -56,18 +58,21 @@ public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallb
         etaTextView = findViewById(R.id.etaTextView);
         distanceTextView = findViewById(R.id.distanceTextView);
 
-        // Initialize Google Maps Directions API
+
         geoApiContext = new GeoApiContext.Builder()
-                .apiKey("YOUR_GOOGLE_MAPS_API_KEY") // Replace with your Google Maps API key
+                .apiKey("AIzaSyDOkTAiAizujL3lhnM0XO51y7Rq6Ztydcg")
                 .build();
 
         loadMap();
 
-        // Start fetching driver's location periodically
+
         startFetchingDriverLocation();
+
+
+        setupBottomNavigation();
     }
 
-    // Load map in fragment
+
     private void loadMap() {
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         if (mapFragment != null) {
@@ -75,7 +80,7 @@ public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallb
         }
     }
 
-    // Get current location and update the map
+
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
@@ -84,7 +89,7 @@ public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallb
         mMap.getUiSettings().setZoomControlsEnabled(true);
         mMap.getUiSettings().setZoomGesturesEnabled(true);
 
-        // Check location permission
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
 
@@ -92,14 +97,14 @@ public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallb
             getCurrentLocation();
 
         } else {
-            // Request location permissions
+
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     LOCATION_PERMISSION_REQUEST_CODE);
         }
     }
 
-    // Get current location using FusedLocationProviderClient
+
     private void getCurrentLocation() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -119,7 +124,7 @@ public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallb
         }
     }
 
-    // Fetch driver's location from backend
+
     private void fetchDriverLocation(LatLng userLocation) {
         ParseQuery<ParseObject> query = ParseQuery.getQuery("DriverLocation");
         query.orderByDescending("timestamp"); // Get the latest location
@@ -132,8 +137,8 @@ public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallb
                     double longitude = driverLocation.getDouble("longitude");
                     LatLng driverLatLng = new LatLng(latitude, longitude);
 
-                    // Add driver's location to the map
-                    mMap.clear(); // Clear previous markers
+
+                    mMap.clear();
                     mMap.addMarker(new MarkerOptions().position(driverLatLng).title("Driver Location"));
 
                     // Draw a route between user and driver
@@ -148,7 +153,7 @@ public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallb
         });
     }
 
-    // Draw a route between two points
+
     private void drawRoute(LatLng origin, LatLng destination) {
         try {
             DirectionsResult result = DirectionsApi.newRequest(geoApiContext)
@@ -197,18 +202,49 @@ public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallb
             @Override
             public void run() {
                 if (mMap != null) {
-                    getCurrentLocation(); // Fetch user's location and then driver's location
+                    getCurrentLocation();
                 }
-                handler.postDelayed(this, 10000); // Fetch every 10 seconds
+                handler.postDelayed(this, 10000);
             }
         };
         handler.post(fetchDriverLocationRunnable);
     }
 
+
+    private void setupBottomNavigation() {
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavigationView);
+        bottomNavigationView.setOnItemSelectedListener(item -> {
+            int itemId = item.getItemId();
+
+            if (itemId == R.id.home) {
+                // Handle Home click
+                Toast.makeText(this, "Home clicked", Toast.LENGTH_SHORT).show();
+                return true;
+            } else if (itemId == R.id.profile) {
+                // Navigate to Profile activity
+                Intent profileIntent = new Intent(User_Dashboard.this, User_Profile.class);
+                startActivity(profileIntent);
+                return true;
+            } else if (itemId == R.id.Notification) {
+                // Navigate to Notification activity
+                Intent notificationIntent = new Intent(User_Dashboard.this, Notification.class);
+                startActivity(notificationIntent);
+                return true;
+            } else if (itemId == R.id.settings) {
+                // Navigate to Settings activity
+                Intent settingsIntent = new Intent(User_Dashboard.this, Settings.class);
+                startActivity(settingsIntent);
+                return true;
+            }
+
+            return false;
+        });
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        handler.removeCallbacks(fetchDriverLocationRunnable); // Stop fetching when the activity is destroyed
+        handler.removeCallbacks(fetchDriverLocationRunnable);
     }
 
     @Override
