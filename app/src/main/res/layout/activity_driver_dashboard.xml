@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".DriverDashboard">
+
+    <TextView
+        android:id="@+id/textView8"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="111dp"
+        android:layout_marginTop="137dp"
+        android:layout_marginEnd="111dp"
+        android:layout_marginBottom="546dp"
+        android:text="Waste Type"
+        android:textSize="36dp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/wetButton"
+        android:layout_width="237dp"
+        android:layout_height="49dp"
+        android:layout_marginStart="87dp"
+        android:layout_marginTop="248dp"
+        android:layout_marginEnd="87dp"
+        android:layout_marginBottom="434dp"
+        android:backgroundTint="#008000"
+        android:text="Wet Waste"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/dryWaste"
+        android:layout_width="237dp"
+        android:layout_height="49dp"
+        android:layout_marginStart="87dp"
+        android:layout_marginTop="328dp"
+        android:layout_marginEnd="87dp"
+        android:layout_marginBottom="354dp"
+        android:backgroundTint="#0000FF"
+        android:text="Dry Waste"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>
