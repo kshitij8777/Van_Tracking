@@ -9,7 +9,7 @@
         android:id="@+id/profile"/>
     <item android:title="Notification"
         android:icon="@drawable/baseline_add_alert_24"
-        android:id="@+id/Notification"/>
+        android:id="@+id/notification"/>
     <item android:title="Settings"
         android:icon="@drawable/baseline_app_settings_alt_24"
         android:id="@+id/settings"/>

@@ -57,7 +57,7 @@ public class Settings extends AppCompatActivity {
                 Intent profileIntent = new Intent(Settings.this, User_Profile.class);
                 startActivity(profileIntent);
                 finish();
-            } else if (itemId == R.id.Notification) {
+            } else if (itemId == R.id.notification) {
                 Intent notificationIntent = new Intent(Settings.this, Notification.class);
                 startActivity(notificationIntent);
                 finish();

@@ -32,7 +32,7 @@ public class User_Profile extends AppCompatActivity {
                 finish(); // Close current activity to avoid back stack clutter
             } else if (itemId == R.id.profile) {
                 // Already on User_Profile activity, no action needed
-            } else if (itemId == R.id.Notification) {
+            } else if (itemId == R.id.notification) {
                 Intent notificationIntent = new Intent(User_Profile.this, Notification.class);
                 startActivity(notificationIntent);
                 finish();
