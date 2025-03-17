@@ -183,6 +183,6 @@ public class startScreen extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        stopTracking(); // Stop tracking when the activity is destroyed
+        stopTracking();
     }
 }

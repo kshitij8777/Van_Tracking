@@ -32,7 +32,7 @@ public class Notification extends AppCompatActivity {
                 Intent profileIntent = new Intent(Notification.this, User_Profile.class);
                 startActivity(profileIntent);
                 finish();
-            } else if (itemId == R.id.Notification) {
+            } else if (itemId == R.id.notification) {
             } else if (itemId == R.id.settings) {
                 Intent settingsIntent = new Intent(Notification.this, Settings.class);
                 startActivity(settingsIntent);
@@ -41,7 +41,7 @@ public class Notification extends AppCompatActivity {
 
             return true;
         });
-        binding.bottomNavigationView.setSelectedItemId(R.id.Notification);
+        binding.bottomNavigationView.setSelectedItemId(R.id.notification);
 
     }
     }

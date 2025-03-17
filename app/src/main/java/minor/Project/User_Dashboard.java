@@ -1,20 +1,20 @@
 package minor.Project;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
-import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
-import android.widget.TextView;
+import android.widget.SearchView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -23,239 +23,207 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.maps.DirectionsApi;
-import com.google.maps.GeoApiContext;
-import com.google.maps.model.DirectionsResult;
-import com.google.maps.model.TravelMode;
-import com.parse.FindCallback;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.parse.ParseException;
 import com.parse.ParseObject;
 import com.parse.ParseQuery;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class User_Dashboard extends AppCompatActivity implements OnMapReadyCallback {
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
-    private GoogleMap mMap;
-    private FusedLocationProviderClient fusedLocationClient;
-    private TextView etaTextView, distanceTextView;
-    private GeoApiContext geoApiContext;
+
+    private static final int FINE_PERMISSION_CODE = 1;
+    private static final int LOCATION_UPDATE_INTERVAL = 5000; // 5 seconds
+
+    private GoogleMap myMap;
+    private Location currentLocation;
+    private FusedLocationProviderClient fusedLocationProviderClient;
+
+    private SearchView mapSearchView;
+    private Marker driverMarker;
+    private Polyline driverPath;
+    private List<LatLng> pathPoints = new ArrayList<>();
     private Handler handler = new Handler();
-    private Runnable fetchDriverLocationRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user_dashboard);
 
-        // Initialize location client
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        mapSearchView = findViewById(R.id.mapSearch);
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
-        // Initialize ETA and Distance TextViews
-        etaTextView = findViewById(R.id.etaTextView);
-        distanceTextView = findViewById(R.id.distanceTextView);
+        getLastLocation();
 
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        mapFragment.getMapAsync(User_Dashboard.this);
 
-        geoApiContext = new GeoApiContext.Builder()
-                .apiKey("AIzaSyDOkTAiAizujL3lhnM0XO51y7Rq6Ztydcg")
-                .build();
+        // Search for a location
+        mapSearchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String location) {
+                searchLocation(location);
+                return false;
+            }
 
-        loadMap();
-
-
-        startFetchingDriverLocation();
-
-
-        setupBottomNavigation();
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
     }
 
 
-    private void loadMap() {
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
-        if (mapFragment != null) {
-            mapFragment.getMapAsync(this);
+    private void getLastLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    FINE_PERMISSION_CODE);
+            return;
+        }
+
+        Task<Location> task = fusedLocationProviderClient.getLastLocation();
+        task.addOnSuccessListener(location -> {
+            if (location != null) {
+                currentLocation = location;
+                if (myMap != null) {
+                    LatLng userLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                    myMap.addMarker(new MarkerOptions()
+                            .position(userLocation)
+                            .title("My Location"));
+                    myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 15));
+                }
+            }
+        });
+    }
+
+
+    private void searchLocation(String location) {
+        Geocoder geocoder = new Geocoder(User_Dashboard.this);
+        List<Address> addressList;
+        try {
+            addressList = geocoder.getFromLocationName(location, 1);
+            if (addressList != null && !addressList.isEmpty()) {
+                Address address = addressList.get(0);
+                LatLng latLng = new LatLng(address.getLatitude(), address.getLongitude());
+
+                myMap.addMarker(new MarkerOptions().position(latLng).title(location));
+                myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 12));
+            } else {
+                Toast.makeText(this, "Location not found", Toast.LENGTH_SHORT).show();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Failed to get location", Toast.LENGTH_SHORT).show();
         }
     }
 
+
+    private void fetchDriverLocation() {
+        ParseQuery<ParseObject> query = ParseQuery.getQuery("DriverLocation");
+        query.orderByDescending("timestamp"); // Get latest location
+        query.getFirstInBackground((object, e) -> {
+            if (e == null) {
+                double latitude = object.getDouble("latitude");
+                double longitude = object.getDouble("longitude");
+                LatLng driverLocation = new LatLng(latitude, longitude);
+
+                updateDriverMarker(driverLocation);
+            } else {
+                Log.e("User_Dashboard", "Failed to fetch driver location: " + e.getMessage());
+            }
+        });
+    }
+
+
+    private void updateDriverMarker(LatLng location) {
+        if (driverMarker == null) {
+            driverMarker = myMap.addMarker(new MarkerOptions()
+                    .position(location)
+                    .title("Driver Location"));
+        } else {
+            driverMarker.setPosition(location);
+        }
+
+
+        pathPoints.add(location);
+
+
+        if (driverPath != null) driverPath.remove();
+
+        driverPath = myMap.addPolyline(new PolylineOptions()
+                .addAll(pathPoints)
+                .width(8)
+                .color(Color.BLUE));
+
+        myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15));
+    }
+
+
+    private final Runnable fetchDriverLocationRunnable = new Runnable() {
+        @Override
+        public void run() {
+            fetchDriverLocation();
+            handler.postDelayed(this, LOCATION_UPDATE_INTERVAL);
+        }
+    };
 
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
-        mMap = googleMap;
-
-        // Enable zoom controls and gestures
-        mMap.getUiSettings().setZoomControlsEnabled(true);
-        mMap.getUiSettings().setZoomGesturesEnabled(true);
+        myMap = googleMap;
+        myMap.getUiSettings().setZoomControlsEnabled(true);
+        myMap.getUiSettings().setZoomGesturesEnabled(true);
 
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
+        handler.post(fetchDriverLocationRunnable);
 
-            mMap.setMyLocationEnabled(true);
-            getCurrentLocation();
-
+        if (currentLocation != null) {
+            LatLng userLocation = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
+            myMap.addMarker(new MarkerOptions().position(userLocation).title("My Location"));
+            myMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 15));
         } else {
-
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    LOCATION_PERMISSION_REQUEST_CODE);
+            Toast.makeText(this, "Failed to get current location", Toast.LENGTH_SHORT).show();
         }
     }
 
-
-    private void getCurrentLocation() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-
-            fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
-                if (location != null) {
-                    LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
-                    mMap.addMarker(new MarkerOptions().position(currentLocation).title("Your Location"));
-                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 15));
-
-                    // Fetch driver's location from backend
-                    fetchDriverLocation(currentLocation);
-                } else {
-                    Toast.makeText(this, "Location not available", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-    }
-
-
-    private void fetchDriverLocation(LatLng userLocation) {
-        ParseQuery<ParseObject> query = ParseQuery.getQuery("DriverLocation");
-        query.orderByDescending("timestamp"); // Get the latest location
-        query.findInBackground(new FindCallback<ParseObject>() {
-            @Override
-            public void done(List<ParseObject> objects, ParseException e) {
-                if (e == null && objects != null && !objects.isEmpty()) {
-                    ParseObject driverLocation = objects.get(0);
-                    double latitude = driverLocation.getDouble("latitude");
-                    double longitude = driverLocation.getDouble("longitude");
-                    LatLng driverLatLng = new LatLng(latitude, longitude);
-
-
-                    mMap.clear();
-                    mMap.addMarker(new MarkerOptions().position(driverLatLng).title("Driver Location"));
-
-                    // Draw a route between user and driver
-                    drawRoute(userLocation, driverLatLng);
-
-                    // Calculate ETA and distance
-                    calculateETAAndDistance(userLocation, driverLatLng);
-                } else {
-                    Toast.makeText(User_Dashboard.this, "Driver location not found", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
-    }
-
-
-    private void drawRoute(LatLng origin, LatLng destination) {
-        try {
-            DirectionsResult result = DirectionsApi.newRequest(geoApiContext)
-                    .mode(TravelMode.DRIVING)
-                    .origin(new com.google.maps.model.LatLng(origin.latitude, origin.longitude))
-                    .destination(new com.google.maps.model.LatLng(destination.latitude, destination.longitude))
-                    .await();
-
-            if (result.routes != null && result.routes.length > 0) {
-                PolylineOptions polylineOptions = new PolylineOptions();
-                for (com.google.maps.model.LatLng point : result.routes[0].overviewPolyline.decodePath()) {
-                    polylineOptions.add(new LatLng(point.lat, point.lng));
-                }
-                mMap.addPolyline(polylineOptions);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    // Calculate ETA and distance
-    private void calculateETAAndDistance(LatLng origin, LatLng destination) {
-        try {
-            DirectionsResult result = DirectionsApi.newRequest(geoApiContext)
-                    .mode(TravelMode.DRIVING)
-                    .origin(new com.google.maps.model.LatLng(origin.latitude, origin.longitude))
-                    .destination(new com.google.maps.model.LatLng(destination.latitude, destination.longitude))
-                    .await();
-
-            if (result.routes != null && result.routes.length > 0) {
-                String eta = result.routes[0].legs[0].duration.humanReadable;
-                String distance = result.routes[0].legs[0].distance.humanReadable;
-
-                // Update ETA and Distance TextViews
-                etaTextView.setText("ETA: " + eta);
-                distanceTextView.setText("Distance: " + distance);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    // Start fetching driver's location periodically
-    private void startFetchingDriverLocation() {
-        fetchDriverLocationRunnable = new Runnable() {
-            @Override
-            public void run() {
-                if (mMap != null) {
-                    getCurrentLocation();
-                }
-                handler.postDelayed(this, 10000);
-            }
-        };
+    @Override
+    protected void onResume() {
+        super.onResume();
         handler.post(fetchDriverLocationRunnable);
     }
 
-
-    private void setupBottomNavigation() {
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavigationView);
-        bottomNavigationView.setOnItemSelectedListener(item -> {
-            int itemId = item.getItemId();
-
-            if (itemId == R.id.home) {
-                // Handle Home click
-                Toast.makeText(this, "Home clicked", Toast.LENGTH_SHORT).show();
-                return true;
-            } else if (itemId == R.id.profile) {
-                // Navigate to Profile activity
-                Intent profileIntent = new Intent(User_Dashboard.this, User_Profile.class);
-                startActivity(profileIntent);
-                return true;
-            } else if (itemId == R.id.Notification) {
-                // Navigate to Notification activity
-                Intent notificationIntent = new Intent(User_Dashboard.this, Notification.class);
-                startActivity(notificationIntent);
-                return true;
-            } else if (itemId == R.id.settings) {
-                // Navigate to Settings activity
-                Intent settingsIntent = new Intent(User_Dashboard.this, Settings.class);
-                startActivity(settingsIntent);
-                return true;
-            }
-
-            return false;
-        });
+    @Override
+    protected void onPause() {
+        super.onPause();
+        handler.removeCallbacks(fetchDriverLocationRunnable);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         handler.removeCallbacks(fetchDriverLocationRunnable);
+        if (driverMarker != null) driverMarker.remove();
+        if (driverPath != null) driverPath.remove();
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+        if (requestCode == FINE_PERMISSION_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                getCurrentLocation();
+                getLastLocation();
             } else {
-                Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Permission denied. Please enable location permission.", Toast.LENGTH_SHORT).show();
             }
         }
     }
